@@ -1,6 +1,6 @@
-const Device = require('../models/Device');
+const Device = require('../models/Device'); // Adjust the path as needed
 
-// Add a device for the logged-in user
+// Add Device Function
 exports.addDevice = async (req, res) => {
   const { type, status, temperature } = req.body;
 
@@ -10,22 +10,35 @@ exports.addDevice = async (req, res) => {
   res.status(201).json(device);
 };
 
-// Get all devices for the logged-in user
+// Get Devices Function
 exports.getDevices = async (req, res) => {
   const devices = await Device.find({ user: req.user.id });
   res.json(devices);
 };
 
-// Update the status of a device
+// Update Device Status Function
 exports.updateDeviceStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
 
-  const device = await Device.findById(id);
-  if (!device) return res.status(404).json({ message: 'Device not found' });
+  try {
+    const device = await Device.findByIdAndUpdate(id, { status }, { new: true });
 
-  device.status = status;
-  await device.save();
+    if (!device) {
+      return res.status(404).json({ message: 'Device not found' });
+    }
 
-  res.json(device);
+    // Emit the updated device status to all connected clients
+    req.app.io.emit('deviceStatusChanged', device);
+
+    return res.status(200).json(device);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = {
+  addDevice: exports.addDevice,
+  getDevices: exports.getDevices,
+  updateDeviceStatus: exports.updateDeviceStatus,
 };
